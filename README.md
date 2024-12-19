@@ -1,90 +1,201 @@
-# AI-Assistant-Workshop-G51
-# Teacher Assistant Chatbot for Full-Stack Development
+# Prompt Engineering Application
 
-## **Scenarios**
-The Teacher Assistant Chatbot aims to:
-- Support students by explaining programming concepts in full-stack development.
-- Review code and provide constructive feedback.
-- Solve tasks and guide students through front-end and back-end development processes.
+This project is **AI-assistant for fullstack ** application built using Spring Boot for the backend and React for the frontend. The AI Assistant processes user prompts and provides responses using the Spring AI framework for OpenAI integration.
 
 ---
 
-## **System Instructions**
-The chatbot will be fine-tuned with specific instructions to align with educational needs:
-
-### **Capabilities**
-- **Explain Programming Concepts**: Provide beginner-friendly, detailed explanations for topics like REST APIs, databases, Spring Boot, React, and Node.js.
-- **Code Review**: Evaluate submitted code for errors, best practices, and efficiency.
-- **Task Assistance**: Help with tasks like debugging, creating APIs, and writing database queries.
-- **Friendly and Encouraging Tone**: Respond in a way that motivates students and builds confidence.
-
-### **Configuration Parameters**
-- **Tone**: Friendly and formal.
-- **Temperature**: 0.7 for creative yet precise responses.
-- **Max Tokens**: 300 for detailed answers.
-- **Top-p**: 0.9 for diverse yet coherent replies.
+## Features
+- **Backend**: Built with Spring Boot and Spring AI to handle AI prompt processing.
+- **Frontend**: React-based UI to interact with the assistant.
+- **Docker**: Fully containerized backend and frontend for easy deployment.
 
 ---
 
-## **Fine-Tuning Process**
-### **1. Data Collection**
-- Compile high-quality educational material, sample code snippets, and FAQs on full-stack development.
-- Include real-world examples and common student queries.
+## Backend: Spring Boot with Spring AI
 
-### **2. Data Formatting**
-- Convert the content into Q&A pairs with examples of effective prompts and outputs.
-- Apply techniques like zero-shot, few-shot, and chain-of-thought prompting.
+### **Main Class**
+The entry point for the Spring Boot application:
+```java
+package se.alex.lexicon;
 
-### **3. Training**
-- Use a platform like Hugging Face for fine-tuning with labeled datasets.
-- Define specific use cases such as debugging, explaining, and generating code.
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-### **4. Evaluation**
-- Test the chatbot with diverse prompts and scenarios, including multi-step problem-solving.
-- Refine based on feedback to enhance response accuracy and relevance.
+@SpringBootApplication
+public class PromptEngineeringApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(PromptEngineeringApplication.class, args);
+    }
+}
+```
+
+### **Service Layer**
+Service to handle AI prompt processing using Spring AI:
+```java
+import org.springframework.ai.openai.OpenAiService;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AiService {
+
+    private final OpenAiService openAiService;
+
+    public AiService(OpenAiService openAiService) {
+        this.openAiService = openAiService;
+    }
+
+    public String getResponse(String prompt) {
+        return openAiService.completion(prompt).block().getChoices().get(0).getText();
+    }
+}
+```
+
+### **Controller**
+Controller to expose the API endpoints:
+```java
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/chat")
+public class AiController {
+
+    private final AiService aiService;
+
+    public AiController(AiService aiService) {
+        this.aiService = aiService;
+    }
+
+    @PostMapping
+    public String chat(@RequestBody String prompt) {
+        return aiService.getResponse(prompt);
+    }
+}
+```
+
+### **Application Properties**
+Configuration file:
+```properties
+server.port=8080
+spring.application.name=PromptEngineering
+spring.ai.openai.api-key=your-openai-api-key
+spring.ai.openai.base-url=https://api.openai.com/v1
+```
 
 ---
 
-## **Challenges & Solutions**
-### **Challenge 1**: Ensuring precise responses for technical topics.
-- **Solution**: Incorporate prompt engineering techniques like few-shot prompting and detailed examples.
+## Frontend: React
 
-### **Challenge 2**: Balancing creativity and accuracy.
-- **Solution**: Experiment with temperature and top-p settings to fine-tune response styles.
-
-### **Challenge 3**: Handling ambiguous or poorly formatted student queries.
-- **Solution**: Train the model to ask clarifying questions and provide structured guidance.
-
----
-
-## **Future Enhancements**
-- Integrate Retrieval-Augmented Generation (RAG) for referencing up-to-date knowledge from trusted resources.
-- Add voice interaction capabilities for accessibility.
-- Expand the scope to include advanced topics like DevOps and AI integrations.
-
----
-
-## **Deployment**
-### **Platform**
-- Spring Boot application with AI integration using OpenAI or Hugging Face.
-
-### **Frontend**
-- React-based interface for student interaction.
-
-### **Backend**
-- Secure API for processing requests and storing chatbot logs.
-
----
-
-## **Repository Details**
-### **How to Run the Chatbot**
-1. Clone the repository:
+### **Setup**
+1. Initialize a React project:
    ```bash
-   git clone https://github.com/<your-username>/TeacherAssistantChatbot.git
+   npx create-react-app promptengineering-frontend
+   cd promptengineering-frontend
+   npm install axios
    ```
-2. Navigate to the project directory:
+
+2. **Chat Component**:
+```jsx
+import React, { useState } from "react";
+import axios from "axios";
+
+const Chat = () => {
+    const [prompt, setPrompt] = useState("");
+    const [response, setResponse] = useState("");
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            const res = await axios.post("http://localhost:8080/api/chat", prompt, {
+                headers: { "Content-Type": "text/plain" },
+            });
+            setResponse(res.data);
+        } catch (err) {
+            console.error(err);
+            setResponse("Error connecting to backend");
+        }
+    };
+
+    return (
+        <div>
+            <h1>Prompt Engineering Assistant</h1>
+            <form onSubmit={handleSubmit}>
+                <input
+                    type="text"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Ask me anything..."
+                />
+                <button type="submit">Send</button>
+            </form>
+            <div>
+                <h2>Response:</h2>
+                <p>{response}</p>
+            </div>
+        </div>
+    );
+};
+
+export default Chat;
+```
+
+---
+
+## Dockerization
+
+### **Backend Dockerfile**
+Create a `Dockerfile` in the Spring Boot project:
+```dockerfile
+FROM openjdk:17-jdk-slim
+ARG JAR_FILE=target/promptengineering-0.0.1-SNAPSHOT.jar
+COPY ${JAR_FILE} app.jar
+ENTRYPOINT ["java", "-jar", "/app.jar"]
+```
+
+Build and run the backend Docker container:
+```bash
+mvn clean package
+docker build -t promptengineering-backend .
+docker run -p 8080:8080 promptengineering-backend
+```
+
+### **Frontend Dockerfile**
+Create a `Dockerfile` in the React project:
+```dockerfile
+FROM node:16
+WORKDIR /app
+COPY package.json .
+RUN npm install
+COPY . .
+EXPOSE 3000
+CMD ["npm", "start"]
+```
+
+Build and run the frontend Docker container:
+```bash
+docker build -t promptengineering-frontend .
+docker run -p 3000:3000 promptengineering-frontend
+```
+
+---
+
+## Running the Application
+1. Start the backend:
    ```bash
-   cd TeacherAssistantChatbot
+   mvn spring-boot:run
    ```
-3. Set up the environment by installing required dependencies.
-4. Run the application using the provided instructions.
+2. Start the frontend:
+   ```bash
+   npm start
+   ```
+3. Access the application:
+   - Frontend: `http://localhost:3000`
+   - Backend: `http://localhost:8080`
+
+---
+
+## Future Improvements
+- Extend AI capabilities by configuring additional models using Spring AI.
+- Add a database to persist chat history.
+- Deploy the app using Docker Compose or Kubernetes.
+
+---
